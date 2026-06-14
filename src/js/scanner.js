@@ -74,26 +74,17 @@ export class BarcodeScanner {
   }
 
   /**
-   * Decode a single frame from a canvas or image element.
-   *
-   * @param {HTMLCanvasElement|HTMLImageElement} element
-   * @returns {Promise<import('@zxing/library').Result>}
-   * @throws {NotFoundException} when no barcode is found
-   */
-  async scanElement(element) {
-    return this.#reader.decodeFromImageElement
-      ? this.#reader.decodeFromImageElement(element)
-      : this.#reader.decodeFromCanvas(element);
-  }
-
-  /**
-   * Decode a barcode from a canvas element directly.
+   * Decode a barcode from a canvas element.
+   * Converts to a data URL then uses decodeFromImageUrl, which is available
+   * across all @zxing/library versions (decodeFromCanvas is not).
    *
    * @param {HTMLCanvasElement} canvas
    * @returns {Promise<import('@zxing/library').Result>}
+   * @throws {NotFoundException} when no barcode is found
    */
   async scanCanvas(canvas) {
-    return this.#reader.decodeFromCanvas(canvas);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+    return this.#reader.decodeFromImageUrl(dataUrl);
   }
 
   /** Release the camera stream. */
