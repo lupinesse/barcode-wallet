@@ -24,6 +24,7 @@
           <button class="tab-btn" role="tab" aria-selected="true"  data-panel="panel-camera"  id="tab-camera">Camera</button>
           <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-image"   id="tab-image">Image</button>
           <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-pdf"     id="tab-pdf">PDF</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-generate" id="tab-generate">Enter details</button>
         </div>
 
         <!-- Camera panel -->
@@ -68,6 +69,44 @@
         </div>
       </section>
 
+        <!-- Generate panel -->
+        <div class="tab-panel" id="panel-generate" role="tabpanel" aria-labelledby="tab-generate" hidden>
+          <form id="generate-form" class="generate-form" novalidate aria-label="Enter payment details">
+
+            <div class="field">
+              <label class="field__label" for="gen-iban">IBAN <span class="field__required" aria-hidden="true">*</span></label>
+              <input id="gen-iban" class="field__input" type="text" inputmode="text"
+                placeholder="FI58 1017 1000 0001 22" autocomplete="off" spellcheck="false" required />
+              <p class="field__hint" id="gen-iban-hint">Finnish IBAN starting with FI</p>
+              <p class="field__error" id="gen-iban-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="gen-amount">Amount (€)</label>
+              <input id="gen-amount" class="field__input" type="text" inputmode="decimal"
+                placeholder="482.99" autocomplete="off" />
+              <p class="field__hint">Leave blank or enter 0 if amount is not fixed</p>
+              <p class="field__error" id="gen-amount-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="gen-ref">Reference number <span class="field__required" aria-hidden="true">*</span></label>
+              <input id="gen-ref" class="field__input" type="text" inputmode="text"
+                placeholder="55958 22432 94671  or  RF06 5595…" autocomplete="off" spellcheck="false" required />
+              <p class="field__hint" id="gen-ref-hint">National (numeric) or RF reference — type is auto-detected</p>
+              <p class="field__error" id="gen-ref-error" role="alert" aria-live="polite" hidden></p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="gen-due">Due date</label>
+              <input id="gen-due" class="field__input" type="date" />
+              <p class="field__hint">Leave blank if no due date</p>
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--full">Generate barcode</button>
+          </form>
+        </div>
+
       <!-- ── Status ─────────────────────────────────────── -->
       <p id="status" class="status" data-type="idle" role="status" aria-live="polite"></p>
 
@@ -82,7 +121,10 @@
         <p class="output-value">
           <span id="output-text" class="output-value__text"></span>
         </p>
-        <button id="copy-btn" class="btn btn--primary btn--full">Copy value</button>
+        <div class="output-actions">
+          <button id="copy-btn"    class="btn btn--ghost btn--full">Copy value</button>
+          <button id="copy-barcode-btn" class="btn btn--ghost btn--full" hidden>Copy barcode string</button>
+        </div>
       </section>
 
     </main>

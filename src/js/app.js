@@ -1,13 +1,14 @@
 /**
  * @module app
  * Main application entry point.
- * Wires together input sources (camera, image upload, PDF upload) with the
- * barcode scanner and display modules.
+ * Wires together input sources (camera, image upload, PDF upload, manual entry)
+ * with the barcode scanner, Finnish barcode generator, and display modules.
  */
 
 import { BarcodeScanner } from './scanner.js';
-import { loadAndRenderPage } from './pdf-reader.js';
 import { renderToCanvas, formatLabel } from './barcode-display.js';
+import { generateBarcodeString, parseAmount } from './fi-barcode-generator.js';
+import { validateFinnishIBAN, validateNationalRef, validateRFRef, detectRefType } from './validators.js';
 
 const scanner = new BarcodeScanner();
 
@@ -32,12 +33,25 @@ const outputCanvas = document.getElementById('output-canvas');
 const outputFormat = document.getElementById('output-format');
 const outputText = document.getElementById('output-text');
 const copyBtn = document.getElementById('copy-btn');
+const copyBarcodeBtn = document.getElementById('copy-barcode-btn');
 const statusEl = document.getElementById('status');
+
+// Generate-panel fields
+const generateForm = document.getElementById('generate-form');
+const genIban = document.getElementById('gen-iban');
+const genIbanError = document.getElementById('gen-iban-error');
+const genAmount = document.getElementById('gen-amount');
+const genAmountError = document.getElementById('gen-amount-error');
+const genRef = document.getElementById('gen-ref');
+const genRefError = document.getElementById('gen-ref-error');
+const genDue = document.getElementById('gen-due');
 
 /** @type {import('pdfjs-dist').PDFDocumentProxy|null} */
 let currentPDF = null;
 let currentPage = 1;
 let stopCamera = null;
+/** The 54-digit Finnish barcode string for the current result, if generated. */
+let currentBarcodeString = null;
 
 // ── Tab switching ─────────────────────────────────────────────────────────────
 tabs.forEach((btn) => {
@@ -74,7 +88,6 @@ async function populateCameraList() {
       const opt = document.createElement('option');
       opt.value = d.deviceId;
       opt.textContent = d.label || `Camera ${i + 1}`;
-      // Prefer rear camera on mobile
       if (/back|rear|environment/i.test(d.label)) opt.selected = true;
       cameraSelect.appendChild(opt);
     });
@@ -105,7 +118,7 @@ cameraStartBtn.addEventListener('click', async () => {
     deviceId,
     (result) => {
       setStatus('Barcode detected!', 'ok');
-      showResult(result);
+      showScannedResult(result);
     },
     (err) => {
       setStatus(`Camera error: ${err.message}`, 'error');
@@ -116,7 +129,6 @@ cameraStartBtn.addEventListener('click', async () => {
 
 cameraStopBtn.addEventListener('click', stopCurrentCamera);
 
-// Populate camera list when the camera tab is first shown
 document.querySelector('[data-panel="panel-camera"]').addEventListener(
   'click',
   () => populateCameraList(),
@@ -158,7 +170,7 @@ setupDropZone(imageDropZone, imageInput, async (file) => {
     canvas.getContext('2d').drawImage(img, 0, 0);
     URL.revokeObjectURL(img.src);
     const result = await scanner.scanCanvas(canvas);
-    showResult(result);
+    showScannedResult(result);
     setStatus('Barcode found!', 'ok');
   } catch (err) {
     setStatus(noBarcode(err), 'error');
@@ -173,7 +185,7 @@ setupDropZone(pdfDropZone, pdfInput, async (file) => {
   }
   setStatus('Loading PDF…', 'scanning');
   try {
-    const { loadPDF, renderPage } = await import('./pdf-reader.js');
+    const { loadPDF } = await import('./pdf-reader.js');
     currentPDF = await loadPDF(file);
     currentPage = 1;
     pdfPageTotal.textContent = currentPDF.numPages;
@@ -192,7 +204,7 @@ async function scanPDFPage() {
     const { renderPage } = await import('./pdf-reader.js');
     const canvas = await renderPage(currentPDF, currentPage);
     const result = await scanner.scanCanvas(canvas);
-    showResult(result);
+    showScannedResult(result);
     setStatus('Barcode found!', 'ok');
   } catch (err) {
     setStatus(noBarcode(err), 'error');
@@ -207,44 +219,146 @@ pdfNextBtn.addEventListener('click', () => {
   if (currentPDF && currentPage < currentPDF.numPages) { currentPage++; scanPDFPage(); }
 });
 
+// ── Generate panel ────────────────────────────────────────────────────────────
+/** Show or hide a field error message. */
+function fieldError(el, msg) {
+  el.textContent = msg ?? '';
+  el.hidden = !msg;
+}
+
+generateForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+
+  // Clear previous errors
+  fieldError(genIbanError, null);
+  fieldError(genAmountError, null);
+  fieldError(genRefError, null);
+
+  let valid = true;
+
+  // Validate IBAN
+  const ibanResult = validateFinnishIBAN(genIban.value);
+  if (!ibanResult.valid) {
+    fieldError(genIbanError, ibanResult.error);
+    valid = false;
+  }
+
+  // Parse and validate amount (optional — default to 0)
+  let euros = 0;
+  let cents = 0;
+  const amountRaw = genAmount.value.trim();
+  if (amountRaw && amountRaw !== '0') {
+    try {
+      ({ euros, cents } = parseAmount(amountRaw));
+    } catch (err) {
+      fieldError(genAmountError, err.message);
+      valid = false;
+    }
+  }
+
+  // Validate reference
+  const refType = detectRefType(genRef.value);
+  if (refType === 'national') {
+    const refResult = validateNationalRef(genRef.value);
+    if (!refResult.valid) {
+      fieldError(genRefError, refResult.error);
+      valid = false;
+    }
+  } else if (refType === 'rf') {
+    const rfResult = validateRFRef(genRef.value);
+    if (!rfResult.valid) {
+      fieldError(genRefError, rfResult.error);
+      valid = false;
+    }
+  } else {
+    fieldError(genRefError, 'Enter a numeric reference or an RF reference (starting with RF)');
+    valid = false;
+  }
+
+  if (!valid) return;
+
+  // Parse due date
+  const dueDate = genDue.value ? new Date(genDue.value) : null;
+
+  try {
+    const { barcodeString, version } = generateBarcodeString({
+      iban: genIban.value,
+      euros,
+      cents,
+      reference: genRef.value,
+      dueDate,
+    });
+    showGeneratedBarcode(barcodeString, version);
+    setStatus(`Version ${version} barcode generated`, 'ok');
+  } catch (err) {
+    setStatus(`Generation error: ${err.message}`, 'error');
+  }
+});
+
 // ── Result display ────────────────────────────────────────────────────────────
 /**
+ * Show result from a scanner (ZXing Result object).
  * @param {import('@zxing/library').Result} result
  */
-function showResult(result) {
+function showScannedResult(result) {
   const text = result.getText();
   const formatName = result.getBarcodeFormat().toString();
 
+  currentBarcodeString = null;
   outputText.textContent = text;
   outputFormat.textContent = formatLabel(formatName);
+  copyBarcodeBtn.hidden = true;
   outputSection.hidden = false;
 
   try {
     renderToCanvas(outputCanvas, text, formatName);
   } catch (renderErr) {
-    // bwip-js may refuse a format; show the value without graphic
     console.warn('Barcode render failed:', renderErr.message);
     outputCanvas.getContext('2d').clearRect(0, 0, outputCanvas.width, outputCanvas.height);
   }
 }
 
+/**
+ * Show a generated Finnish bank barcode.
+ * @param {string} barcodeString - 54-digit string
+ * @param {4|5} version
+ */
+function showGeneratedBarcode(barcodeString, version) {
+  currentBarcodeString = barcodeString;
+  outputText.textContent = barcodeString;
+  outputFormat.textContent = `Finnish bank barcode v${version}`;
+  copyBarcodeBtn.hidden = false;
+  outputSection.hidden = false;
+
+  try {
+    renderToCanvas(outputCanvas, barcodeString, 'CODE_128');
+  } catch (renderErr) {
+    console.warn('Barcode render failed:', renderErr.message);
+  }
+}
+
 function hideOutput() {
   outputSection.hidden = true;
+  currentBarcodeString = null;
 }
 
 // ── Copy to clipboard ─────────────────────────────────────────────────────────
-copyBtn.addEventListener('click', async () => {
+async function copyToClipboard(text, btn, label) {
   try {
-    await navigator.clipboard.writeText(outputText.textContent);
-    copyBtn.textContent = 'Copied!';
-    setTimeout(() => { copyBtn.textContent = 'Copy value'; }, 2000);
+    await navigator.clipboard.writeText(text);
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = label; }, 2000);
   } catch {
     setStatus('Clipboard access denied', 'error');
   }
-});
+}
+
+copyBtn.addEventListener('click', () => copyToClipboard(outputText.textContent, copyBtn, 'Copy value'));
+copyBarcodeBtn.addEventListener('click', () =>
+  copyToClipboard(currentBarcodeString ?? outputText.textContent, copyBarcodeBtn, 'Copy barcode string')
+);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-/** Human-friendly message for a scan failure. */
 function noBarcode(err) {
   if (err?.name === 'NotFoundException' || /not found/i.test(err?.message)) {
     return 'No barcode detected — try a clearer image';
