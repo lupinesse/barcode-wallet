@@ -9,7 +9,7 @@ vi.mock('@zxing/library', () => {
 
   const BrowserMultiFormatReader = vi.fn(() => ({
     decodeFromVideoDevice: vi.fn(() => Promise.resolve()),
-    decodeFromCanvas: vi.fn(),
+    decodeFromImageUrl: vi.fn(),
     decodeFromImageElement: vi.fn(),
     reset: vi.fn(),
   }));
@@ -51,11 +51,12 @@ describe('BarcodeScanner', () => {
     expect(instance.reset).toHaveBeenCalled();
   });
 
-  it('scanCanvas delegates to reader.decodeFromCanvas', async () => {
+  it('scanCanvas delegates to reader.decodeFromImageUrl with a data URL', async () => {
     const { BrowserMultiFormatReader } = await import('@zxing/library');
     const instance = BrowserMultiFormatReader.mock.results.at(-1).value;
-    const canvas = {};
+    const canvas = { toDataURL: vi.fn(() => 'data:image/jpeg;base64,abc') };
     await s.scanCanvas(canvas).catch(() => {});
-    expect(instance.decodeFromCanvas).toHaveBeenCalledWith(canvas);
+    expect(canvas.toDataURL).toHaveBeenCalledWith('image/jpeg', 0.92);
+    expect(instance.decodeFromImageUrl).toHaveBeenCalledWith('data:image/jpeg;base64,abc');
   });
 });
