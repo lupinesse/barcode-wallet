@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1a1a2e" />
+    <meta name="description" content="Scan a bill barcode and keep it in your digital wallet" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <title>Barcode Wallet</title>
+    <link rel="stylesheet" href="/src/css/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>Barcode Wallet</h1>
+      <p class="app-tagline">Scan a bill — keep its barcode in your pocket</p>
+    </header>
+
+    <main class="app-main">
+
+      <!-- ── Input tabs ─────────────────────────────────── -->
+      <section class="input-section" aria-label="Input source">
+        <div class="tab-list" role="tablist" aria-label="Scan method">
+          <button class="tab-btn" role="tab" aria-selected="true"  data-panel="panel-camera"  id="tab-camera">Camera</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-image"   id="tab-image">Image</button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-pdf"     id="tab-pdf">PDF</button>
+        </div>
+
+        <!-- Camera panel -->
+        <div class="tab-panel" id="panel-camera" role="tabpanel" aria-labelledby="tab-camera">
+          <div class="camera-controls">
+            <label for="camera-select" class="sr-only">Select camera</label>
+            <select id="camera-select" class="camera-select"></select>
+            <button id="camera-start" class="btn btn--primary">Start scanning</button>
+            <button id="camera-stop"  class="btn btn--ghost" disabled>Stop</button>
+          </div>
+          <div class="video-wrapper" aria-label="Camera viewfinder">
+            <video id="camera-video" autoplay playsinline muted></video>
+            <div class="scan-overlay" aria-hidden="true">
+              <div class="scan-frame"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Image panel -->
+        <div class="tab-panel" id="panel-image" role="tabpanel" aria-labelledby="tab-image" hidden>
+          <label id="image-drop-zone" class="drop-zone" for="image-input" tabindex="0" aria-label="Drop or click to upload an image">
+            <span class="drop-zone__icon" aria-hidden="true">🖼️</span>
+            <span class="drop-zone__text">Drop an image here or <strong>click to browse</strong></span>
+            <span class="drop-zone__hint">JPG, PNG, WEBP, GIF</span>
+            <input id="image-input" type="file" accept="image/*" class="sr-only" />
+          </label>
+        </div>
+
+        <!-- PDF panel -->
+        <div class="tab-panel" id="panel-pdf" role="tabpanel" aria-labelledby="tab-pdf" hidden>
+          <label id="pdf-drop-zone" class="drop-zone" for="pdf-input" tabindex="0" aria-label="Drop or click to upload a PDF">
+            <span class="drop-zone__icon" aria-hidden="true">📄</span>
+            <span class="drop-zone__text">Drop a PDF here or <strong>click to browse</strong></span>
+            <span class="drop-zone__hint">PDF — will scan page 1 first</span>
+            <input id="pdf-input" type="file" accept="application/pdf,.pdf" class="sr-only" />
+          </label>
+          <nav id="pdf-page-nav" class="pdf-nav" hidden aria-label="PDF page navigation">
+            <button id="pdf-prev" class="btn btn--ghost btn--sm" aria-label="Previous page">‹</button>
+            <span>Page <span id="pdf-page-num">1</span> of <span id="pdf-page-total">1</span></span>
+            <button id="pdf-next" class="btn btn--ghost btn--sm" aria-label="Next page">›</button>
+          </nav>
+        </div>
+      </section>
+
+      <!-- ── Status ─────────────────────────────────────── -->
+      <p id="status" class="status" data-type="idle" role="status" aria-live="polite"></p>
+
+      <!-- ── Output ─────────────────────────────────────── -->
+      <section id="output-section" class="output-section" hidden aria-label="Detected barcode">
+        <div class="output-meta">
+          <span class="output-format-badge" id="output-format"></span>
+        </div>
+        <div class="barcode-card">
+          <canvas id="output-canvas" class="barcode-canvas" aria-label="Virtual barcode"></canvas>
+        </div>
+        <p class="output-value">
+          <span id="output-text" class="output-value__text"></span>
+        </p>
+        <button id="copy-btn" class="btn btn--primary btn--full">Copy value</button>
+      </section>
+
+    </main>
+
+    <script type="module" src="/src/js/app.js"></script>
+  </body>
+</html>

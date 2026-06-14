@@ -1,0 +1,30 @@
+{
+  "name": "barcode-wallet",
+  "version": "0.1.0",
+  "description": "Scan a bill (camera, image, or PDF) and display its barcode as a virtual wallet card",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src tests --ext .js",
+    "format": "prettier --write src tests index.html",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
+    "bwip-js": "^4.5.1",
+    "pdfjs-dist": "^4.9.155"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "prettier": "^3.3.3",
+    "vite": "^5.4.19",
+    "vite-plugin-pwa": "^0.21.1",
+    "vitest": "^2.1.9"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
